@@ -2,3 +2,5 @@ gunicorn>=20.0.4
 hemlock-demographics==0.0.4
 hemlock-survey>=0.0.28
 psycopg2>=2.8.4
+xgboost
+gshap

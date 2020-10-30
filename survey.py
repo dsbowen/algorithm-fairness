@@ -14,7 +14,7 @@ from hemlock_demographics import demographics
 
 from random import choices
 
-N_PRACTICE, N_FCAST = 1, 1
+N_PRACTICE, N_FCAST = 5, 10
 
 X = pd.read_csv('X_test.csv')
 df = X.describe()
@@ -83,9 +83,9 @@ consent_label = '''
 
 <p><b>Purpose.</b> The purpose of this study is to explore how people think about the future.</p> 
 
-<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 20 minutes.</p> 
+<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 8-12 minutes.</p> 
 
-<p><b>Benefits & Compensation.</b> If you complete the survey, we will pay you $4. In addition, you will receive a bonus of up to $4 depending on the accuracy of your predictions.</p> 
+<p><b>Benefits & Compensation.</b> If you complete the survey, we will pay you $2. In addition, you will receive a bonus of up to $3 depending on the accuracy of your predictions.</p> 
 
 <p><b>Risks.</b> There are no known risks or discomforts associated with participating in this study.</p> 
 
@@ -96,7 +96,7 @@ consent_label = '''
 <p><b>Questions</b> Please contact the experimenters if you have concerns or questions: dsbowen@wharton.upenn.edu. You may also contact the office of the University of Pennsylvania’s Committee for the Protection of Human Subjects, at 215.573.2540 or via email at irb@pobox.upenn.edu.</p>
 '''
 
-# @route('/survey')
+@route('/survey')
 def start():
     return Branch(
         consent_page(
@@ -109,17 +109,15 @@ def start():
         navigate=comprehension
     )
 
-choice_txt = 'There is a {} in 100 chance the offender will commit another crime within 2 years'
-
-@route('/survey')
+# @route('/survey')
 def comprehension(origin=None):
     assigner.next()
     return Branch(
-        # *comprehension_check(
-        #     instructions=gen_instructions_pages(),
-        #     checks=gen_checks_pages(),
-        #     attempts=3
-        # ),
+        *comprehension_check(
+            instructions=gen_instructions_pages(),
+            checks=gen_checks_pages(),
+            attempts=3
+        ),
         Page(
             Label('You passed the comprehension check')
         ),
@@ -169,6 +167,8 @@ def gen_instructions_pages():
             )
         )
     return pages
+
+choice_txt = 'There is a {} in 100 chance the offender will commit another crime within 2 years'
 
 def gen_checks_pages():
     pages = [
