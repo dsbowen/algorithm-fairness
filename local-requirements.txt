@@ -1,0 +1,4 @@
+hemlock-demographics==0.0.4
+hemlock-survey>=0.0.28
+ipykernel>=5.3.4
+pyyaml>=5.3.1
