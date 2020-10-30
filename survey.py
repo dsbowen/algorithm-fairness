@@ -5,7 +5,7 @@ from flask_login import current_user
 from gshap.datasets import load_recidivism
 from hemlock import (
     Branch, Page, Embedded, Binary, Check, Label, Range, Input, 
-    Compile as C, Validate as V, Submit as S, route
+    Compile as C, Validate as V, Submit as S, route, settings
 )
 from hemlock.tools import (
     Assigner, comprehension_check, consent_page, completion_page, html_list
@@ -14,7 +14,9 @@ from hemlock_demographics import demographics
 
 from random import choices
 
-N_PRACTICE, N_FCAST = 5, 10
+N_PRACTICE, N_FCAST = 3, 8
+
+settings['collect_IP'] = False
 
 X = pd.read_csv('X_test.csv')
 df = X.describe()
