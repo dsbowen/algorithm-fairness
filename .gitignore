@@ -1,5 +1,7 @@
 .ipynb_checkpoints/
+archive/
 venv/
 __pycache__/
 test.py
 test.ipynb
+debug.log
