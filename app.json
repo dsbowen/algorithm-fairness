@@ -1,7 +1,7 @@
 {
-    "addons": ["heroku-postgresql:hobby-dev"],
+    "addons": ["heroku-postgresql:hobby-basic"],
     "formation": {
-        "web": {"quantity": 1, "size": "free"}
+        "web": {"quantity": 10, "size": "standard-1x"}
     },
     "env": {
         "APP_IMPORT": {
