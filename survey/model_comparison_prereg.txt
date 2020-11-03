@@ -1,0 +1,13 @@
+Hypotheses: We began by training a machine learning model to predict criminal recidivism based on 9 variables related to a criminal offender's demographics and criminal record. We hypothesize that our model's predictions are better than human predictions in terms of performance (Brier score) and fairness (to Black and White offenders).
+
+DV: Participants and the ML model will predict the probability that a criminal offender recidivates within 2 years from when the offender's profile was constructed. Using the COMPAS dataset (from ProPublica), we can verify whether the offender did or did not recidivate. We measure performance by Brier score. We measure fairness using 'false positive predictions'; the predicted probability of recidivism for offenders who do not recidivate. We define a set of predictions as 'fair' to the extent that they treat Black and White offenders equally in terms of false positive predictions. 
+
+Conditions. There is only one condition. We will show participants profiles of criminal offenders including demographic information and criminal history, and participants will predict their chances of committing another crime within two years.
+
+Analyses. To compare performance, we regress the difference in Brier score between human and model predictions on a constant regressor. A positive coefficient on the constant regressor indicates that the model's predictions outperformed human predictions. To compare fairness, we regress the difference in false positive prediction on a binary indicator that the offender is Black. A positive coefficient indicates that the model's predictions were more fair than human predictions. In both analyses we cluster standard errors by participant and run a t-test.
+
+Outliers. We will test participants' comprehension of the task by asking them to make a specified prediction (e.g. 'drag the slider to indicate you believe there is a 50 in 100 chance the offender will recidivate') and indicate how their bonus is determined. We will exclude participants who fail either comprehension check.
+
+Sample size. We will collect data from 100 participants who make 10 predictions each (sample size determined by budget constraints).
+
+Other. Before training our model, we used a 75-25 train-test split on the data. We then trained our model on the training data. Both the model and participants will be evaluated on their predictions of the test data. We did not evaluate our model's performance on the test data before running this study.
