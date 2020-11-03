@@ -76,7 +76,7 @@ def gen_fcast_check_q():
 def random_fcast_check(fcast_check_q):
     x = round(100*random.random())
     fcast_check_q.label = task_check_txt.format(x)
-    fcast_check_q.submit = S.match(str(x))
+    fcast_check_q.submit = S.match(x)
     fcast_check_q.debug = D.drag_range(x, p_exec=.5)
 
 def gen_bonus_check_q():
