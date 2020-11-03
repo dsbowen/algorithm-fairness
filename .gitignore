@@ -3,6 +3,8 @@ archive/
 data/
 venv/
 __pycache__/
+data.db
 test.py
+survey/survey.py
 test.ipynb
 debug.log

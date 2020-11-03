@@ -4,4 +4,4 @@ hemlock-survey>=0.0.30
 psycopg2>=2.8.4
 xgboost==1.2.1
 gshap==0.0.3
-sklearn==0.23.2
+scikit-learn==0.23.2
