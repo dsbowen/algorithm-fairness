@@ -10,13 +10,7 @@ from hemlock.tools import comprehension_check, completion_page
 
 import random
 
-# test deploy
-# commit and tag
-# submit prereg
-# deploy and launch
-# set N_PRACTICE and N_FCAST
-
-N_PRACTICE, N_FCAST = 1, 10
+N_PRACTICE, N_FCAST = 5, 10
 
 @route('/survey')
 def start():
