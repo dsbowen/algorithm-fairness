@@ -5,8 +5,8 @@ import pandas as pd
 from flask_login import current_user
 from gshap.datasets import load_recidivism
 from hemlock import (
-    Branch, Page, Binary, Embedded, Label, Range, 
-    Debug as D, Validate as V, Submit as S
+    Branch, Page, Binary, Check, Embedded, Label, Range, 
+    Compile as C, Debug as D, Validate as V, Submit as S
 )
 from hemlock.tools import consent_page, html_list
 from hemlock_demographics import demographics
@@ -61,6 +61,10 @@ task_description = '''
 more accurate.</p>
 '''
 
+model_description = '''
+We may also show you predictions made by a computer model. Testing shows that the model makes more accurate predictions than the average person. Testing also shows that the model treats Black and White offenders equally.
+'''
+
 task_check_txt = '''
 <p>Imagine you've just read the profile of a criminal offender. Drag the slider to predict that there is a {} in 100 chance the offender will commit another crime within 2 years.</p>
 '''
@@ -77,7 +81,7 @@ def random_fcast_check(fcast_check_q):
     x = round(100*random.random())
     fcast_check_q.label = task_check_txt.format(x)
     fcast_check_q.submit = S.match(x)
-    fcast_check_q.debug = D.drag_range(x, p_exec=.5)
+    fcast_check_q.debug = D.drag_range(x, p_exec=.6)
 
 def gen_bonus_check_q():
     return Binary(
@@ -86,7 +90,34 @@ def gen_bonus_check_q():
         var='BonusComprehension', data_rows=-1,
         validate=V.require(),
         submit=S.correct_choices(1),
-        debug=D.click_choices(1, p_exec=.5)
+        debug=D.click_choices(1, p_exec=.6)
+    )
+
+def gen_model_performance_check_q():
+    return Check(
+        '''
+        <p>We may also show you predictions made by a computer model. Compared to the average person, the model's predictions are</p>
+        ''',
+        [
+            ('more accurate', 1),
+            ('less accurate', 0),
+            ('equally accurate', -1)
+        ],
+        var='ModelPerformanceComprehension', data_rows=-1,
+        compile=C.shuffle(),
+        validate=V.require(),
+        submit=S.correct_choices(1),
+        debug=D.click_choices(1, p_exec=.6)
+    )
+
+def gen_model_bias_check_q():
+    return Binary(
+        '<p>True or False: The model is biased against Black offenders.</p>',
+        ['True', 'False'],
+        var='ModelBiasComprehension', data_rows=-1,
+        validate=V.require(),
+        submit=S.correct_choices(0),
+        debug=D.click_choices(0, p_exec=.6)
     )
 
 # summary from training data
@@ -162,6 +193,32 @@ def gen_fcast_question():
         prepend='There is a ', 
         append=' in 100 chance this offender will commit another crime within 2 years.',
         var='Fcast'
+    )
+
+def gen_feedback_page(i, y, output, fcast_q):
+    return Page(
+        Label(
+            compile=C.feedback(
+                int(y.iloc[i]), round(100*output[i]), fcast_q
+            )
+        )
+    )
+
+@C.register
+def feedback(feedback_label, y, output, fcast_q):
+    feedback_label.label = (
+        '''
+        <p>You predicted there was a {} in 100 chance the offender would commit another crime withing 2 years.</p>
+        '''.format(fcast_q.response)
+        + (
+            '''
+            <p>The model predicted there was a {} in 100 chance.</p>
+            '''.format(output) if current_user.meta.get('Algorithm')
+            else ''
+        )
+        + '''
+        The offender <b>{}</b> commit another crime within 2 years.</p>
+        '''.format('did' if y else 'did not')
     )
 
 def gen_practice_intro_page(n_practice):
