@@ -1,3 +1,4 @@
+from .explainer import Explainer
 from .model import model
 
 import numpy as np
@@ -5,15 +6,16 @@ import pandas as pd
 from flask_login import current_user
 from gshap.datasets import load_recidivism
 from hemlock import (
-    Branch, Page, Binary, Check, Embedded, Label, Range, 
+    Branch, Page, Binary, Check, Embedded, Label, Range, Select,
     Compile as C, Debug as D, Validate as V, Submit as S
 )
-from hemlock.tools import consent_page, html_list
+from hemlock.tools import consent_page, html_table
 from hemlock_demographics import demographics
 from sklearn.model_selection import train_test_split
 
 import pickle
 import random
+from copy import deepcopy
 
 consent_label = '''
 <p>Hello! We are researchers at the University of Pennsylvania and are interested how you look forward to predict the future. We will show profiles of criminal offenders and ask you to predict how likely they are to commit future crimes. Please read the information below and if you wish to participate, indicate your consent.</p>
@@ -62,7 +64,7 @@ more accurate.</p>
 '''
 
 model_description = '''
-We may also show you predictions made by a computer model. Testing shows that the model makes more accurate predictions than the average person. Testing also shows that the model treats Black and White offenders equally.
+We may also show you predictions made by a computer model. Testing shows that the model makes more accurate predictions than the average person.
 '''
 
 task_check_txt = '''
@@ -131,6 +133,7 @@ recidivism = load_recidivism()
 X, y = recidivism.data, recidivism.target
 X = X.drop(columns='high_supervision')
 X_train, X_test, y_train, y_test = train_test_split(X, y)
+explainer = Explainer(model.predict_proba, X_train)
 
 def get_sample(n_practice, n_fcast):
     idx = random.choices(list(range(len(X_test))), k=n_practice+n_fcast)
@@ -148,73 +151,116 @@ def get_sample(n_practice, n_fcast):
     )
     return X_sample, y_sample, output
 
-# describes the average offender from the training data
-avg_offender_label = (
-    '<p>Here is some information about the criminal population in Broward County, Florida</p>'
-    + html_list(
-        '{} of every 100 offenders commit another crime within 2 years.'.format(round(100*sum_df.two_year_recid['mean'])),
-        'The average offender has {} prior convictions'.format(round(sum_df.priors_count['mean'])),
-        'The average offender is {} years old'.format(round(sum_df.age['mean'])),
-        '{} of every 100 offenders have committed a felony'.format(round(100*sum_df.felony['mean'])),
-        '{} of every 100 offenders are Black'.format(round(100*sum_df.black['mean'])),
-        '{} of every 100 offenders are male'.format(round(100*sum_df.male['mean'])),
-        'The average offender has {} juvenile felonies, {} juvenial misdemeanors, and {} other juvenile offenses'.format(
-            round(sum_df.juv_fel_count['mean']), 
-            round(sum_df.juv_misd_count['mean']), 
-            round(sum_df.juv_other_count['mean'])
+sum_dict = {
+    'Information about the criminal population in Broward County, Florida': [
+        'The average offender has {} prior convictions'.format(
+            round(sum_df.priors_count['50%'])
         ),
-        '{} of every 100 offenders are married'.format(round(100*sum_df.married['mean'])),
-        ordered=False
-    )
-)
+        'The average offender is {} years old'.format(
+            round(sum_df.age['50%'])
+        ),
+        "{} of every 100 offenders' most recent crime was a felony".format(
+            round(100*sum_df.felony['mean'])
+        ),
+        '{} of every 100 offenders are Black'.format(
+            round(100*sum_df.black['mean'])
+        ),
+        '{} of every 100 offenders are male'.format(
+            round(100*sum_df.male['mean'])
+        ),
+        'The average offender has {} juvenile felonies, {} juvenile misdemeanors, and {} other juvenile offenses'.format(
+            round(sum_df.juv_fel_count['50%']),
+            round(sum_df.juv_misd_count['50%']),
+            round(sum_df.juv_other_count['50%'])
+        ),
+        '{} of every 100 offenders are married'.format(
+            round(100*sum_df.married['mean'])
+        )
+    ]
+}
+
+def gen_profile_table(x, offender_col):
+    profile_dict = deepcopy(sum_dict)
+    profile_dict[offender_col] = [
+        '<i>Number of prior convictions:</i> {}'.format(x.priors_count),
+        '<i>Age:</i> {}'.format(x.age),
+        '<i>Most recent crime:</i> {}'.format(
+            'Felony' if x.felony else 'Misdemeanor'
+        ),
+        '<i>Race:</i> {}'.format('Black' if x.black else 'White'),
+        '<i>Sex:</i> {}'.format('Male' if x.male else 'Female'),
+        'This offender has {} juvenile felonies, {} juvenile misdemeanors, and {} other juvenile offenses'.format(
+            x.juv_fel_count,
+            x.juv_misd_count,
+            x.juv_other_count
+        ),
+        '<i>Marital status:</i> {}'.format(
+            'Married' if x.married else 'Unmarried'
+        )
+    ]
+    return html_table(profile_dict, extra_classes=['table-hover'])
 
 def gen_profile_label(x):
     return Label(
-        '<p>Consider the following offender from Broward County</p>'
-        + html_list(
-            'Number of prior convictions: {}'.format(x.priors_count),
-            'Age: {}'.format(x.age),
-            'Charge: {}'.format('Felony' if x.felony else 'Misdemeanor'),
-            'Race: {}'.format('Black' if x.black else 'White'),
-            'Sex: {}'.format('Male' if x.male else 'Female'),
-            'Juvenile felonies: {}'.format(x.juv_fel_count),
-            'Juvenile misdemeanors: {}'.format(x.juv_misd_count),
-            'Other juvenile offenses: {}'.format(x.juv_other_count),
-            'Marital status: {}'.format(
-                'Married' if x.married else 'Unmarried'
-            ),
-            ordered=False
+        '''
+        <p>Consider the criminal offender whose profile is described in the right colum of the table below. Your task is to predict how likely this offender is to commit another crime within 2 years.</p>
+        '''
+        + gen_profile_table(x, 'Profile of an offender from Broward County')
+        + '''
+        <hr>
+        <p>{} of every 100 offenders will commit another crime within 2 years</p>
+        '''.format(
+            round(100*sum_df.two_year_recid['mean'])
         )
     )
 
-def gen_fcast_question():
+def gen_most_important_feature_select():
+    return Select(
+        '''
+        <p>What factor do you think is most important in assessing how likely this offender is commit another crime?</p>
+        ''',
+        [
+            '',
+            ('Number of prior convictions', 'priors_count'),
+            ('Age', 'age'),
+            ('Most recent crime', 'felony'),
+            ('Race', 'black'),
+            ('Sex', 'male'),
+            ('Juvenile record', 'juv_offenses'),
+            ('Marital status', 'married')
+        ],
+        var='MostImportantFeature',
+        validate=V.require()
+    )
+
+def gen_fcast_question(output=None):
     return Range(
         '<p>Drag the slider to enter your prediction.</p>',
         prepend='There is a ', 
         append=' in 100 chance this offender will commit another crime within 2 years.',
-        var='Fcast'
+        var='Fcast',
+        default=None if output is None else round(100*output)
     )
 
-def gen_feedback_page(i, y, output, fcast_q):
+def gen_feedback_page(i, y, output, fcast_q, disp_output=False):
     return Page(
         Label(
             compile=C.feedback(
-                int(y.iloc[i]), round(100*output[i]), fcast_q
+                int(y.iloc[i]), round(100*output[i]), fcast_q, disp_output
             )
         )
     )
 
 @C.register
-def feedback(feedback_label, y, output, fcast_q):
+def feedback(feedback_label, y, output, fcast_q, disp_output=False):
     feedback_label.label = (
         '''
-        <p>You predicted there was a {} in 100 chance the offender would commit another crime withing 2 years.</p>
+        <p>You predicted there was a {} in 100 chance the offender would commit another crime within 2 years.</p>
         '''.format(fcast_q.response)
         + (
             '''
             <p>The model predicted there was a {} in 100 chance.</p>
-            '''.format(output) if current_user.meta.get('Algorithm')
-            else ''
+            '''.format(output) if disp_output else ''
         )
         + '''
         The offender <b>{}</b> commit another crime within 2 years.</p>
@@ -233,4 +279,20 @@ def gen_fcast_intro_page(n_fcast):
         Label('''
         You will now make {} predictions. You will not receive feedback, and these predictions <i>will</i> determine your bonus.
         '''.format(n_fcast))
+    )
+
+def gen_model_prediction_label(output, explanation):
+    return Label(
+        '''
+        <p>The computer model predicts there is a <b>{} in 100</b> chance the offender
+        will commit another crime within 2 years.</p>
+        '''.format(round(100*output))
+        + (
+            '''
+            <hr>
+            <p><b>Here's what the computer model based its prediction 
+            on.</b></p>
+            ''' if explanation else ''
+        )
+        + explanation
     )

@@ -2,7 +2,6 @@ from .utils import (
     gen_start_branch, task_description, gen_fcast_check_q, 
     gen_bonus_check_q, get_sample, gen_practice_intro_page, 
     gen_fcast_intro_page, gen_profile_label, gen_fcast_question, 
-    avg_offender_label
 )
 
 from hemlock import Branch, Page, Label, Compile as C, route
@@ -53,7 +52,6 @@ def gen_practice_pages(X, y, output):
         pages += [
             Page(
                 Label('Practice prediction {} of {}'.format(i+1, N_PRACTICE)),
-                Label(avg_offender_label),
                 gen_profile_label(X.iloc[i]),
                 fcast_q,
                 timer='FcastTimer'
@@ -78,7 +76,6 @@ def gen_fcast_pages(X, y, output):
     return [
         Page(
             Label('Prediction {} of {}'.format(i+1, N_FCAST)),
-            Label(avg_offender_label),
             gen_profile_label(X.iloc[i+N_PRACTICE]),
             gen_fcast_question(),
             timer='FcastTimer'

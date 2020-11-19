@@ -1,5 +1,6 @@
 .ipynb_checkpoints/
 archive/
+analysis/figures/
 data/
 venv/
 __pycache__/

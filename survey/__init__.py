@@ -1,5 +1,7 @@
-# from . import model_comparison
-from . import model_assistance
+from . import comparison
+# from . import assistance
+# from . import explanation
+# from . import demo
 
 from hemlock import settings
 

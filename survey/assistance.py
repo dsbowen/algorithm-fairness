@@ -2,8 +2,9 @@ from .utils import (
     gen_start_branch, task_description, model_description, gen_fcast_check_q, 
     gen_bonus_check_q, gen_model_performance_check_q, gen_model_bias_check_q,
     get_sample, gen_practice_intro_page, 
-    gen_fcast_intro_page, gen_profile_label, gen_fcast_question, gen_feedback_page,  
-    avg_offender_label
+    gen_fcast_intro_page, gen_profile_label, gen_fcast_question, gen_feedback_page,
+    gen_model_prediction_label,
+    gen_most_important_feature_select
 )
 
 from flask_login import current_user
@@ -14,7 +15,7 @@ import random
 
 N_PRACTICE, N_FCAST = 1, 1
 
-assigner = Assigner({'Algorithm': (0, 1)})
+assigner = Assigner({'Algorithm': (1, 1)})
 
 # @route('/survey')
 def start():
@@ -28,17 +29,12 @@ def comprehension(origin=None):
                 Label(task_description),
                 Label(model_description)
             ),
-            checks=[
-                Page(
-                    gen_fcast_check_q(),
-                    gen_bonus_check_q()
-                ),
-                Page(
-                    gen_model_performance_check_q(),
-                    gen_model_bias_check_q(),
-                    compile=C.clear_response()
-                )
-            ],
+            checks=Page(
+                gen_fcast_check_q(),
+                gen_bonus_check_q(),
+                gen_model_performance_check_q(),
+                compile=C.clear_response()
+            ),
             attempts=3
         ),
         Page(
@@ -65,41 +61,47 @@ def gen_practice_pages(X, y, output):
         fcast_q = gen_fcast_question()
         fcast_page = Page(
             Label('Practice prediction {} of {}'.format(i+1, N_PRACTICE)),
-            Label(avg_offender_label),
             gen_profile_label(X.iloc[i]),
+            gen_most_important_feature_select(),
             fcast_q,
             timer='FcastTImer'
         )
         if current_user.meta['Algorithm']:
+            # fcast_q.default=round(100*output[i])
             fcast_page.questions.insert(
-                -1, gen_model_prediction_label(i, output)
+                -2, gen_model_prediction_label(output[i])
             )
         pages += [
             fcast_page,
-            gen_feedback_page(i, y, output, fcast_q)
+            gen_feedback_page(
+                i, y, output, fcast_q, 
+                disp_output=current_user.meta['Algorithm']
+            )
         ]
     return pages
 
-def gen_model_prediction_label(i, output):
-    return Label(
-        '''
-        The computer model predicts there is a {} in 100 chance the offender
-        will commit another crime within 2 years.
-        '''.format(round(100*output[i]))
-    )
+# def gen_model_prediction_label(i, output):
+#     return Label(
+#         '''
+#         The computer model predicts there is a {} in 100 chance the offender
+#         will commit another crime within 2 years.
+#         '''.format(round(100*output[i]))
+    # )
 
 def gen_fcast_pages(X, y, output):
     def gen_fcast_page(i):
+        fcast_q = gen_fcast_question()
         page = Page(
             Label('Prediction {} of {}'.format(i+1, N_FCAST)),
-            Label(avg_offender_label),
             gen_profile_label(X.iloc[i+N_PRACTICE]),
-            gen_fcast_question(),
+            gen_most_important_feature_select(),
+            fcast_q,
             timer='FcastTimer'
         )
         if current_user.meta['Algorithm']:
+            # fcast_q.default = round(100*output[i+N_PRACTICE])
             page.questions.insert(
-                -1, gen_model_prediction_label(i+N_PRACTICE, output)
+                -2, gen_model_prediction_label(output[i+N_PRACTICE])
             )
         return page
 
