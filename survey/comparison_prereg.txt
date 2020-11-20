@@ -10,4 +10,4 @@ Outliers. We will test participants' comprehension of the task by asking them to
 
 Sample size. We will collect data from 100 participants who make 10 predictions each (sample size determined by budget constraints).
 
-Other. Before training our model, we used a 75-25 train-test split on the data. We then trained our model on the training data. Both the model and participants will be evaluated on their predictions of the test data. We did not evaluate our model's performance on the test data before running this study. You can find our preregistered analysis code here: https://github.com/dsbowen/algorithm-fairness/blob/v0.2/analysis/model_comparison.ipynb.
+Other. Before training our model, we used a 75-25 train-test split on the data. We then trained our model on the training data. Both the model and participants will be evaluated on their predictions of the test data. We did not evaluate our model's performance on the test data before running this study. You can find our preregistered analysis code here: https://github.com/dsbowen/algorithm-fairness/blob/v0.2/analysis/comparison.ipynb.

@@ -281,7 +281,7 @@ def gen_fcast_intro_page(n_fcast):
         '''.format(n_fcast))
     )
 
-def gen_model_prediction_label(output, explanation):
+def gen_model_prediction_label(output, explanation=''):
     return Label(
         '''
         <p>The computer model predicts there is a <b>{} in 100</b> chance the offender
