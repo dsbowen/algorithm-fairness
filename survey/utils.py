@@ -63,10 +63,6 @@ task_description = '''
 more accurate.</p>
 '''
 
-model_description = '''
-We may also show you predictions made by a computer model. Testing shows that the model makes more accurate predictions than the average person.
-'''
-
 task_check_txt = '''
 <p>Imagine you've just read the profile of a criminal offender. Drag the slider to predict that there is a {} in 100 chance the offender will commit another crime within 2 years.</p>
 '''
@@ -149,7 +145,7 @@ def get_sample(n_practice, n_fcast):
     current_user.embedded.append(
         Embedded('y', list(y_sample))
     )
-    return X_sample, y_sample, output
+    return X_sample, y_sample, np.round(100*output)
 
 sum_dict = {
     'Information about the criminal population in Broward County, Florida': [
@@ -246,7 +242,7 @@ def gen_feedback_page(i, y, output, fcast_q, disp_output=False):
     return Page(
         Label(
             compile=C.feedback(
-                int(y.iloc[i]), round(100*output[i]), fcast_q, disp_output
+                int(y.iloc[i]), int(output), fcast_q, disp_output
             )
         )
     )
@@ -286,7 +282,7 @@ def gen_model_prediction_label(output, explanation=''):
         '''
         <p>The computer model predicts there is a <b>{} in 100</b> chance the offender
         will commit another crime within 2 years.</p>
-        '''.format(round(100*output))
+        '''.format(int(output))
         + (
             '''
             <hr>
