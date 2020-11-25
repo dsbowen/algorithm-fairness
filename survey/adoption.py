@@ -9,7 +9,7 @@ from hemlock.tools import Assigner, completion_page
 
 import random
 
-N_SELF, N_TRIAL, N_FCAST = 1, 1, 2
+N_SELF, N_TRIAL, N_FCAST = 3, 3, 10
 
 assigner = Assigner({'Explanation': (1, 0), 'Adopt': (1, 0)})
 
@@ -17,7 +17,7 @@ assigner = Assigner({'Explanation': (1, 0), 'Adopt': (1, 0)})
 def start():
     return gen_start_branch(
         compensation='''
-            Additionally, we will randomly select 1 in 10 participants to receive a bonus of up to $30 ($15 average). Your bonus will depend on the accuracy of your predictions.
+            We will pay you $2 to complete this survey. Additionally, we will randomly select 1 in 10 participants to receive a bonus of up to $30 ($15 average). Your bonus will depend on the accuracy of your predictions.
             ''',
         navigate=comprehension
     )
