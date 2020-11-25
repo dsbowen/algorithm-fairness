@@ -34,7 +34,9 @@ class Explainer(gshap.KernelExplainer):
         df['juv_offenses'] = df[self.juv_offenses_cols].sum(axis=1)
         return df.drop(columns=self.juv_offenses_cols + ['black']) 
         
-    def explain_observations(self, X, output=None, nsamples=64, threshold=.04):
+    def explain_observations(
+            self, X, output=None, nsamples=64, threshold=.04
+        ):
         def get_profile_df(X):
             if isinstance(X, pd.Series):
                 X = X.to_frame().T
@@ -52,7 +54,9 @@ class Explainer(gshap.KernelExplainer):
             for i in range(len(profile_df))
         ]
     
-    def explain_observation(self, profile, shap_values, output, threshold=.04):  
+    def explain_observation(
+            self, profile, shap_values, output, threshold=.04
+        ):  
         def get_feature_explanations():
             if not any(shap_values):
                 return '''

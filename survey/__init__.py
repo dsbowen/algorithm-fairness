@@ -1,4 +1,5 @@
-from . import comparison
+# from . import comparison
+from . import adoption
 # from . import assistance
 # from . import explanation
 # from . import demo

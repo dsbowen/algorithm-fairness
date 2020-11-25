@@ -1,6 +1,5 @@
 from .utils import (
-    gen_start_branch, task_description, gen_fcast_check_q, 
-    gen_bonus_check_q, get_sample, gen_practice_intro_page, 
+    gen_start_branch, gen_comprehension_branch, get_sample, gen_practice_intro_page, 
     gen_fcast_intro_page, gen_profile_label, gen_fcast_question, 
     gen_most_important_feature_select
 )
@@ -14,24 +13,19 @@ N_PRACTICE, N_FCAST = 5, 10
 
 @route('/survey')
 def start():
-    return gen_start_branch(comprehension)
+    return gen_start_branch(
+        compensation='''
+            If you complete the survey, we will pay you $2. Additionally, you will receive a bonus of up to $3 ($1.50 on average) depending on the accuracy of your predictions.
+            ''',
+        navigate=comprehension
+    )
 
 # @route('/survey')
 def comprehension(origin=None):
-    return Branch(
-        *comprehension_check(
-            instructions=Page(
-                Label(task_description)
-            ),
-            checks=Page(
-                gen_fcast_check_q(),
-                gen_bonus_check_q()
-            ),
-            attempts=3
-        ),
-        Page(
-            Label('You passed the comprehension check.')
-        ),
+    return gen_comprehension_branch(
+        additional_instr='''
+        <p>We will pay you a larger bonus if your predictions are more accurate.</p>
+        ''',
         navigate=forecast
     )
 

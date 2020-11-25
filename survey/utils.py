@@ -3,18 +3,20 @@ from .model import model
 
 import numpy as np
 import pandas as pd
-from flask_login import current_user
 from gshap.datasets import load_recidivism
 from hemlock import (
     Branch, Page, Binary, Check, Embedded, Label, Range, Select,
     Compile as C, Debug as D, Validate as V, Submit as S
 )
-from hemlock.tools import consent_page, html_table
+from hemlock.tools import (
+    consent_page, comprehension_check, html_table, reset_random_seed
+)
 from hemlock_demographics import demographics
 from sklearn.model_selection import train_test_split
 
 import pickle
 import random
+import time
 from copy import deepcopy
 
 consent_label = '''
@@ -24,9 +26,9 @@ consent_label = '''
 
 <p><b>Purpose.</b> The purpose of this study is to explore how people think about the future.</p> 
 
-<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 20 minutes.</p> 
+<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 8-12 minutes.</p> 
 
-<p><b>Benefits & Compensation.</b> If you complete the survey, we will pay you $3. In addition, you will receive a bonus of up to $3 ($1.50 on average) depending on the accuracy of your predictions.</p> 
+<p><b>Benefits & Compensation.</b> {}</p> 
 
 <p><b>Risks.</b> There are no known risks or discomforts associated with participating in this study.</p> 
 
@@ -37,10 +39,10 @@ consent_label = '''
 <p><b>Questions</b> Please contact the experimenters if you have concerns or questions: dsbowen@wharton.upenn.edu. You may also contact the office of the University of Pennsylvania’s Committee for the Protection of Human Subjects, at 215.573.2540 or via email at irb@pobox.upenn.edu.</p>
 '''
 
-def gen_start_branch(navigate):
+def gen_start_branch(compensation, navigate):
     return Branch(
         consent_page(
-            consent_label,
+            consent_label.format(compensation),
             '<p>Please enter your MTurk ID to consent.</p>'
         ),
         demographics(
@@ -58,9 +60,6 @@ task_description = '''
 <p>For example, you might predict that an offender has a 50 in 100 chance of committing another crime within 2 years.</p>
 
 <p>Because the profiles were collected several years ago, we know whether the offenders did or didn't commit another crime. This allows us to score your predictions based on how accurate they were.</p>
-
-<p>You will receive a larger bonus if your predictions are
-more accurate.</p>
 '''
 
 task_check_txt = '''
@@ -91,31 +90,26 @@ def gen_bonus_check_q():
         debug=D.click_choices(1, p_exec=.6)
     )
 
-def gen_model_performance_check_q():
-    return Check(
-        '''
-        <p>We may also show you predictions made by a computer model. Compared to the average person, the model's predictions are</p>
-        ''',
-        [
-            ('more accurate', 1),
-            ('less accurate', 0),
-            ('equally accurate', -1)
-        ],
-        var='ModelPerformanceComprehension', data_rows=-1,
-        compile=C.shuffle(),
-        validate=V.require(),
-        submit=S.correct_choices(1),
-        debug=D.click_choices(1, p_exec=.6)
-    )
-
-def gen_model_bias_check_q():
-    return Binary(
-        '<p>True or False: The model is biased against Black offenders.</p>',
-        ['True', 'False'],
-        var='ModelBiasComprehension', data_rows=-1,
-        validate=V.require(),
-        submit=S.correct_choices(0),
-        debug=D.click_choices(0, p_exec=.6)
+def gen_comprehension_branch(
+        additional_instr, navigate, navigate_worker=False
+    ):
+    return Branch(
+        *comprehension_check(
+            instructions=Page(
+                Label(task_description + additional_instr)
+            ),
+            checks=Page(
+                gen_fcast_check_q(),
+                gen_bonus_check_q(),
+                compile=[C.compile_questions(), C.clear_response()]
+            ),
+            attempts=3
+        ),
+        Page(
+            Label('You passed the comprehension check.')
+        ),
+        navigate=navigate,
+        navigate_worker=navigate_worker
     )
 
 # summary from training data
@@ -131,21 +125,67 @@ X = X.drop(columns='high_supervision')
 X_train, X_test, y_train, y_test = train_test_split(X, y)
 explainer = Explainer(model.predict_proba, X_train)
 
-def get_sample(n_practice, n_fcast):
+def get_sample(part, n_practice, n_fcast, explanation=False):
+    def store_embedded():
+        part.embedded.append(Embedded('Practice', [1]*n_practice+[0]*n_fcast))
+        part.embedded += [
+            Embedded(col, list(X_sample[col])) for col in X_sample.columns
+        ]
+        part.embedded.append(Embedded('output', list(output)))
+        part.embedded.append(Embedded('y', list(y_sample)))
+
+    reset_random_seed()
     idx = random.choices(list(range(len(X_test))), k=n_practice+n_fcast)
-    X_sample, y_sample = X_test.iloc[idx], y_test.iloc[idx]
+    X_sample, y_sample = (
+        X_test.iloc[idx].reset_index(drop=True),
+        y_test.iloc[idx].reset_index(drop=True)
+    )
     output = model.predict_proba(X_sample)
-    current_user.embedded.append(
-        Embedded('Practice', [1]*n_practice+[0]*n_fcast)
+    store_embedded()
+    explanations = [''] * n_practice * n_fcast
+    if explanation:
+        explanations = explainer.explain_observations(X_sample, output)
+    return X_sample, y_sample, np.round(100*output), explanations
+
+def split_iterables(iterables, *n_samples):
+    return [split_iterable(iterable, *n_samples) for iterable in iterables]
+
+def split_iterable(iterable, *n_samples):
+    split, idx = [], 0
+    if isinstance(iterable, (pd.DataFrame, pd.Series)):
+        iterable = iterable.reset_index(drop=True)
+        for n_sample in n_samples:
+            item = iterable.iloc[idx:idx+n_sample].reset_index(drop=True)
+            split.append(item)
+            idx += n_sample
+    else:
+        for n_sample in n_samples:
+            split.append(iterable[idx:idx+n_sample])
+            idx += n_sample
+    return split
+
+practice_intro_txt = '''
+<p>You will now make {n_practice} practice predictions to familiarize yourself with the task. You will receive feedback after each prediction, and these predictions will <i>not</i> determine your bonus.</p>
+
+<p>You will make the first {n_self} practice predictions on your own. For the last {n_trial} practice predictions, we will show the computer model's prediction. Think of these last {n_trial} practice predictions as a 'free trial' to assess how helpful you find the computer model.</p>
+
+<p>After the practice predictions, you will make {n_fcast} 'real' predictions. You will not receive feedback, and these predictions <i>will</i> determine your bonus. Additionally, your free trial will expire, meaning you will have to decide how much of your bonus you're willing to pay to continue using the computer model.</p>
+'''
+
+def gen_practice_intro_page(
+        n_self, n_trial, n_fcast, additional_instr='', delay_forward=20000
+    ):
+    return Page(
+        Label(
+            practice_intro_txt.format(
+                n_practice=n_self + n_trial,
+                n_self=n_self,
+                n_trial=n_trial,
+                n_fcast=n_fcast
+            ) + additional_instr
+        ),
+        delay_forward=delay_forward
     )
-    current_user.embedded += [
-        Embedded(col, list(X_sample[col])) for col in X_sample.columns
-    ]
-    current_user.embedded.append(Embedded('output', list(output)))
-    current_user.embedded.append(
-        Embedded('y', list(y_sample))
-    )
-    return X_sample, y_sample, np.round(100*output)
 
 sum_dict = {
     'Information about the criminal population in Broward County, Florida': [
@@ -259,16 +299,16 @@ def feedback(feedback_label, y, output, fcast_q, disp_output=False):
             '''.format(output) if disp_output else ''
         )
         + '''
-        The offender <b>{}</b> commit another crime within 2 years.</p>
+        The offender <b>{}</b> commit another crime within 2 years.
         '''.format('did' if y else 'did not')
     )
 
-def gen_practice_intro_page(n_practice):
-    return Page(
-        Label('''
-        You will now make {} practice predictions. You will receive feedback after each prediction, and these predictions will <i>not</i> determine your bonus.'''.format(n_practice)
-        )
-    )
+# def gen_practice_intro_page(n_practice):
+#     return Page(
+#         Label('''
+#         You will now make {} practice predictions. You will receive feedback after each prediction, and these predictions will <i>not</i> determine your bonus.'''.format(n_practice)
+#         )
+#     )
 
 def gen_fcast_intro_page(n_fcast):
     return Page(
