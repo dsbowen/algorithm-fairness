@@ -4,7 +4,10 @@ from .utils import (
 )
 
 from flask_login import current_user
-from hemlock import Participant, Branch, Page, Blank, Input, Label, Compile as C, Debug as D, Validate as V, Navigate as N, route
+from hemlock import (
+    Participant, Branch, Page, Blank, Input, Label, 
+    Compile as C, Debug as D, Validate as V, Navigate as N, route
+)
 from hemlock.tools import Assigner, completion_page
 
 import random
@@ -49,7 +52,9 @@ def practice(origin=None):
         X=X[2], y=y[2], output=output[2], explanations=explanations[2]
     ))
     return Branch(
-        gen_practice_intro_page(N_SELF, N_TRIAL, N_FCAST, delay_forward=500),
+        gen_practice_intro_page(
+            N_SELF, N_TRIAL, N_FCAST, delay_forward=500
+        ),
         *gen_practice_pages(X[0], y[0], output[0], explanations[0]),
         Page(
             Label(
@@ -159,24 +164,11 @@ def auction(origin):
     )
 
 def auction_result(result_label, bid_q):
-    def get_other_bid():
-        parts = Participant.query.limit(100).all()
-        parts = [part for part in parts if part.meta.get('WTP') is not None]
-        if not parts:
-            return 0 if adopt else 10
-        parts.sort(key=lambda part: part.meta['WTP'])
-        return (
-            parts[0].meta['WTP'] if adopt else parts[-1].meta['WTP']
-        )
-
     adopt = current_user.meta['Adopt']
     bid = float(bid_q.data)
-    other_bid = get_other_bid()
+    other_bid = 0 if adopt else 29.99
     win = bid >= other_bid if adopt else bid > other_bid
-    result_label.label = '''
-        You bid ${:.2f}. The other participant bid ${:.2f}.
-        '''.format(bid, other_bid)
-    result_label.label += (
+    result_label.label = (
         'You won the auction.' if win else 'You lost the auction.'
     )
     current_user.meta.update({

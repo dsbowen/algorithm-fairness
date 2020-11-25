@@ -26,7 +26,7 @@ consent_label = '''
 
 <p><b>Purpose.</b> The purpose of this study is to explore how people think about the future.</p> 
 
-<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 8-12 minutes.</p> 
+<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 10-15 minutes.</p> 
 
 <p><b>Benefits & Compensation.</b> {}</p> 
 
@@ -282,7 +282,7 @@ def gen_feedback_page(i, y, output, fcast_q, disp_output=False):
     return Page(
         Label(
             compile=C.feedback(
-                int(y.iloc[i]), int(output), fcast_q, disp_output
+                int(y.iloc[i]), int(output[i]), fcast_q, disp_output
             )
         )
     )
@@ -318,17 +318,18 @@ def gen_fcast_intro_page(n_fcast):
     )
 
 def gen_model_prediction_label(output, explanation=''):
+    if not explanation:
+        return Label(
+            '''
+            The computer model predicts there is a <b>{} in 100</b> chance the offender will commit another crime within 2 years.
+            '''.format(int(output))
+        )
     return Label(
         '''
-        <p>The computer model predicts there is a <b>{} in 100</b> chance the offender
-        will commit another crime within 2 years.</p>
-        '''.format(int(output))
-        + (
-            '''
-            <hr>
-            <p><b>Here's what the computer model based its prediction 
-            on.</b></p>
-            ''' if explanation else ''
-        )
-        + explanation
+        <p>The computer model predicts there is a <b>{} in 100</b> chance the offender will commit another crime within 2 years.</p>
+
+        <hr>
+        <p><b>Here's what the computer model based its prediction on.</b></p>
+        {}
+        '''.format(int(output), explanation)
     )
