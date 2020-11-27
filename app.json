@@ -1,5 +1,5 @@
 {
-    "addons": ["heroku-postgresql:standard-0"],
+    "addons": ["heroku-postgresql:standard-0", "heroku-redis:premium-1"],
     "formation": {
         "web": {"quantity": 2, "size": "standard-1x"},
         "worker": {"quantity": 2, "size": "standard-1x"}
