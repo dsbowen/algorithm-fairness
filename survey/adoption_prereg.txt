@@ -1,6 +1,6 @@
 Hypothesis. Explaining how a machine learning model works (specifically, SHAP) increases performance in predicting criminal recidivism.
 
-DV: We measure performance by Brier score.
+DV: We measure performance as the difference between the participant's Brier score and the model's Brier score.
 
 Conditions. Participants will predict whether a criminal will recidivate within two years. They will base their prediction on nine variables describing the offender's demographics and criminal record. 
 
@@ -21,7 +21,7 @@ Participants in the adoption condition win the auction and adopt the model for t
 
 Participants in the no-adoption condition are unlikely to win the auction and adopt the model for the third set of predictions.
 
-Analyses. We begin by setting the market price to the median bid of all participants. We then select participants who outbid the market price and adopted the model or underbid the market price and did not adopt the model. We regress Brier scores on an indicator that the participant was in the explanation condition. A negative coefficient indicates that explainability improved performance. A positive coefficient indicates that explainability harmed performance. We will cluster standard errors by participant. This analysis will use only the third set of predictions. The first two sets are practice rounds.
+Analyses. We begin by setting the market price to the median bid of all participants. We then select participants who outbid the market price and adopted the model or underbid the market price and did not adopt the model. We regress performance on an indicator that the participant was in the explanation condition. A negative coefficient indicates that explainability improved performance. A positive coefficient indicates that explainability harmed performance. We will cluster standard errors by participant. This analysis will use only the third set of predictions. The first two sets are practice rounds.
 
 Outliers. We will test participants' comprehension of the task by asking them to make a specified prediction (e.g., 'drag the slider to indicate you believe there is a 50 in 100 chance the offender will recidivate') and indicate how their bonus is determined. We will exclude participants who fail either comprehension check.
 
@@ -31,8 +31,8 @@ Other. We will test two secondary hypotheses about the mechanisms by which expla
 
 First, we test whether explainability increases the probability of adopting the model. As before, we begin by setting the market price to the median bid. We then select participants who outbid the market price and adopted the model or underbid the market price and did not adopt the model. We regress an indicator that the participant adopted the model on an indicator that the participant was in the explanation condition. A positive coefficient indicates that explainability increased the probability of adoption.
 
-Second, we test whether explainability improves performance directly. We will regress the Brier score on indicators for the explainability and adoption conditions and their interaction. A negative coefficient on the interaction term indicates that explainability directly improves performance.
+Second, we test whether explainability improves performance directly. We will select participants in the adoption condition and regress performance on an indicator for the explanation condition. A negative coefficient indicates that explainability directly improves performance.
 
-We will also test a secondary hypothesis that explainability improves fairness. We define a set of predictions as 'fair' if the Brier scores are the same for Black and White offenders who did not recidivate. We begin by selecting observations for which the offender did not recidivate. We then regress the Brier score on an indicator for the explanation condition, an indicator that the offender was Black, and their interaction.  A negative coefficient on the interaction term indicates the explainability improved fairness. A positive coefficient on the interaction term indicates that explainability harmed fairness.
+We will also test a secondary hypothesis that explainability improves fairness. We define a set of predictions as 'fair' if the Brier scores are the same for Black and White offenders who did not recidivate. We begin by selecting observations for which the offender did not recidivate. We then regress performance on an indicator for the explanation condition, an indicator that the offender was Black, and their interaction.  A negative coefficient on the interaction term indicates the explainability improved fairness. A positive coefficient on the interaction term indicates that explainability harmed fairness.
 
 You can find our preregistered analysis code here: https://github.com/dsbowen/algorithm-fairness/blob/v0.3/analysis/adoption.ipynb.

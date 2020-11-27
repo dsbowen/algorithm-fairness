@@ -11,6 +11,8 @@ from hemlock import (
 from hemlock.tools import (
     consent_page, comprehension_check, html_table, reset_random_seed
 )
+from hemlock_berlin import berlin
+from hemlock_crt import crt
 from hemlock_demographics import demographics
 from sklearn.model_selection import train_test_split
 
@@ -26,7 +28,7 @@ consent_label = '''
 
 <p><b>Purpose.</b> The purpose of this study is to explore how people think about the future.</p> 
 
-<p><b>Procedure.</b> You will be asked to complete a survey that will take approximately 10-15 minutes.</p> 
+<p><b>Procedure.</b> You will take a survey which lasts approximately 10-20 minutes.</p> 
 
 <p><b>Benefits & Compensation.</b> {}</p> 
 
@@ -39,8 +41,8 @@ consent_label = '''
 <p><b>Questions</b> Please contact the experimenters if you have concerns or questions: dsbowen@wharton.upenn.edu. You may also contact the office of the University of Pennsylvania’s Committee for the Protection of Human Subjects, at 215.573.2540 or via email at irb@pobox.upenn.edu.</p>
 '''
 
-def gen_start_branch(compensation, navigate):
-    return Branch(
+def gen_start_branch(compensation, navigate, include_berlin=False, include_crt=False):
+    branch = Branch(
         consent_page(
             consent_label.format(compensation),
             '<p>Please enter your MTurk ID to consent.</p>'
@@ -51,6 +53,16 @@ def gen_start_branch(compensation, navigate):
         ),
         navigate=navigate
     )
+    if include_crt:
+        branch.pages.extend(
+            crt(
+                'bat_ball', 'lily_pads', 'widgets', 'stock', 
+                page=True, require=True
+            )
+        )
+    if include_berlin:
+        branch.pages.append(berlin(require=True))
+    return branch
 
 task_description = '''
 <p>Please read these instructions carefully. We will test your understanding on the next pages.</p>
@@ -172,9 +184,7 @@ practice_intro_txt = '''
 <p>After the practice predictions, you will make {n_fcast} 'real' predictions. You will not receive feedback, and these predictions <i>will</i> determine your bonus. Additionally, your free trial will expire, meaning you will have to decide how much of your bonus you're willing to pay to continue using the computer model.</p>
 '''
 
-def gen_practice_intro_page(
-        n_self, n_trial, n_fcast, additional_instr='', delay_forward=20000
-    ):
+def gen_practice_intro_page(n_self, n_trial, n_fcast, additional_instr=''):
     return Page(
         Label(
             practice_intro_txt.format(
@@ -183,8 +193,7 @@ def gen_practice_intro_page(
                 n_trial=n_trial,
                 n_fcast=n_fcast
             ) + additional_instr
-        ),
-        delay_forward=delay_forward
+        )
     )
 
 sum_dict = {

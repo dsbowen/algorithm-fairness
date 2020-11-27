@@ -1,6 +1,8 @@
 from .utils import (
     explainer, gen_start_branch, gen_comprehension_branch, get_sample,
-    split_iterables, gen_practice_intro_page, gen_fcast_question, gen_profile_label, gen_model_prediction_label, gen_feedback_page
+    split_iterables, gen_practice_intro_page, gen_fcast_question, 
+    gen_profile_label, gen_model_prediction_label, 
+    gen_most_important_feature_select, gen_feedback_page
 )
 
 from flask_login import current_user
@@ -9,6 +11,8 @@ from hemlock import (
     Compile as C, Debug as D, Validate as V, Navigate as N, route
 )
 from hemlock.tools import Assigner, completion_page
+from hemlock_berlin import berlin
+from hemlock_crt import crt
 
 import random
 
@@ -22,6 +26,8 @@ def start():
         compensation='''
             We will pay you $2 to complete this survey. Additionally, we will randomly select 1 in 10 participants to receive a bonus of up to $30 ($15 average). Your bonus will depend on the accuracy of your predictions.
             ''',
+        include_berlin=True, 
+        include_crt=True,
         navigate=comprehension
     )
 
@@ -52,9 +58,7 @@ def practice(origin=None):
         X=X[2], y=y[2], output=output[2], explanations=explanations[2]
     ))
     return Branch(
-        gen_practice_intro_page(
-            N_SELF, N_TRIAL, N_FCAST, delay_forward=500
-        ),
+        gen_practice_intro_page(N_SELF, N_TRIAL, N_FCAST),
         *gen_practice_pages(X[0], y[0], output[0], explanations[0]),
         Page(
             Label(
@@ -79,11 +83,12 @@ def gen_practice_pages(X, y, output, explanations, trial=False):
             )),
             gen_profile_label(x),
             fcast_q,
+            gen_most_important_feature_select(),
             timer='FcastTimer'
         )
         if trial:
             fcast_page.questions.insert(
-                -1, gen_model_prediction_label(output, explanation)
+                -2, gen_model_prediction_label(output, explanation)
             )
         return fcast_q, fcast_page
 
@@ -98,11 +103,12 @@ def gen_practice_pages(X, y, output, explanations, trial=False):
         ]
     return pages
 
-def auction(origin):
+# @route('/survey')
+def auction(origin=None):
     random_bid = '{:.2f}'.format(30*random.random())
     bid_q = Blank(
         ('''
-        <p>From previous studies, we estimate that most participants' bonuses will be $0.10 to $1.70 larger if they have the model to assist them.</p>
+        <p>From previous studies, we estimate that most participants' bonuses will be <b>$0.10 to $1.70</b> larger if they have the model to assist them.</p>
 
         <p>How much are you willing to pay (bid) to continue using the model?</p>
         <ul>
@@ -112,9 +118,8 @@ def auction(origin):
         </ul>
         '''),
         blank_empty='_____', prepend='$', 
-        type='number', min=0, max=30, step=.01,
-        debug=D.send_keys(random_bid),
-        validate=[V.require(), V.exact_decimals(2)]
+        type='number', min=0, max=30, step=.01, required=True,
+        debug=D.send_keys(random_bid)
     )
     return Branch(
         Page(
@@ -147,15 +152,21 @@ def auction(origin):
             ),
             bid_q,
             Input(
-                '<p>Please re-enter your bid.</p>',
-                prepend='$', type='number', min=0, max=30, step=.01,
+                '<p>Confirm your bid</p>',
+                prepend='$', type='number', min=0, max=30, step=.01, 
+                required=True,
                 debug=D.send_keys(random_bid),
                 validate=V.match(
                     bid_q, 
-                    error_msg='<p>Please make sure your bids match.</p>'
+                    error_msg='<p>Bids do not match</p>'
                 )
             ),
-            delay_forward=500
+            Label(
+                '''
+                The forward button will appear in {:.0f} seconds. Please take this time to carefully read the instructions and consider how much you want to bid.
+                '''.format(45000/1000)
+            ),
+            delay_forward=45000
         ),
         Page(
             Label(compile=C(auction_result, bid_q))
@@ -187,11 +198,12 @@ def gen_fcast_pages():
             Label('Prediction {} of {}'.format(i+1, N_FCAST)),
             gen_profile_label(x),
             gen_fcast_question(),
+            gen_most_important_feature_select(),
             timer='FcastTimer'
         )
         if current_user.meta['WonAuction']:
             page.questions.insert(
-                -1, gen_model_prediction_label(output, explanation)
+                -2, gen_model_prediction_label(output, explanation)
             )
         return page
 
