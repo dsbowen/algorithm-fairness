@@ -5,33 +5,33 @@ from .utils import (
     gen_most_important_feature_select, gen_feedback_page
 )
 
+import numpy as np
 from flask_login import current_user
 from hemlock import (
-    Participant, Branch, Page, Blank, Input, Label, 
+    Participant, Branch, Page, Binary, Blank, Input, Label, 
     Compile as C, Debug as D, Validate as V, Navigate as N, route
 )
-from hemlock.tools import Assigner, completion_page
+from hemlock.tools import Assigner, completion_page, titrate
 from hemlock_berlin import berlin
 from hemlock_crt import crt
+from scipy.stats import expon
 
 import random
 
-N_SELF, N_TRIAL, N_FCAST = 3, 3, 10
+N_SELF, N_TRIAL, N_FCAST = 1, 1, 1
 
-assigner = Assigner({'Explanation': (1, 0), 'Adopt': (1, 0)})
+assigner = Assigner({'Explanation': (1, 0)})
 
-@route('/survey')
+# @route('/survey')
 def start():
     return gen_start_branch(
         compensation='''
             We will pay you $2 to complete this survey. Additionally, we will randomly select 1 in 10 participants to receive a bonus of up to $30 ($15 average). Your bonus will depend on the accuracy of your predictions.
             ''',
-        include_berlin=True, 
-        include_crt=True,
         navigate=comprehension
     )
 
-# @route('/survey')
+@route('/survey')
 def comprehension(origin=None):
     assigner.next()
     return gen_comprehension_branch(
@@ -76,19 +76,18 @@ def practice(origin=None):
 def gen_practice_pages(X, y, output, explanations, trial=False):
     def gen_fcast_page(i, x, y, output, explanation):
         prediction_number = i+1+N_SELF if trial else i+1
-        fcast_q = gen_fcast_question()
+        fcast_q = gen_fcast_question(output if trial else None)
         fcast_page = Page(
             Label('Practice prediction {} of {}'.format(
                 prediction_number, N_SELF+N_TRIAL
             )),
             gen_profile_label(x),
             fcast_q,
-            gen_most_important_feature_select(),
             timer='FcastTimer'
         )
         if trial:
             fcast_page.questions.insert(
-                -2, gen_model_prediction_label(output, explanation)
+                -1, gen_model_prediction_label(output, explanation)
             )
         return fcast_q, fcast_page
 
@@ -105,86 +104,74 @@ def gen_practice_pages(X, y, output, explanations, trial=False):
 
 # @route('/survey')
 def auction(origin=None):
-    random_bid = '{:.2f}'.format(30*random.random())
-    bid_q = Blank(
-        ('''
-        <p>From previous studies, we estimate that most participants' bonuses will be <b>$0.10 to $1.70</b> larger if they have the model to assist them.</p>
-
-        <p>How much are you willing to pay (bid) to continue using the model?</p>
-        <ul>
-            <li><b>I am willing to pay up to $''', ''' to continue using the model</b></li>
-            <li><b>I am unwilling to pay more than $''', ''' to continue using the model</b></li>
-            <li>This is roughly equivalent to, <b>I expect my bonus to be $''', ''' larger if I continue using the model</b></li>
-        </ul>
-        '''),
-        blank_empty='_____', prepend='$', 
-        type='number', min=0, max=30, step=.01, required=True,
-        debug=D.send_keys(random_bid)
-    )
     return Branch(
         Page(
             Label(
                 '''
-                <p>You will now make {} predictions. You will not receive feedback, and these predictions <i>will</i> determine your bonus.</p>
+                <p>You'll now make {} predictions. You won't receive feedback, and these predictions <i>will</i> determine your bonus.</p>
 
-                <p>Additionally, your free trial using the computer model has expired. To continue using the model, we will pair you with another participant to bid for it.</p>
+                <p>Additionally, your free trial with the computer model has expired. To continue receiving the model's advice, we'll pair you with another participant to bid for it.</p>
 
-                <p>We will enter both of your bids in a 'second-price auction'. If you outbid the other participant, you will get to keep using the model, but we will deduct the other participant's bid from your bonus. (We resolve ties randomly.) <b>The best strategy is to bid the exact amount you're willing to pay.</b> Trying to 'game the system' by bidding more or less than you're willing to pay will make you worse off.</p>
+                <p>The auction works exactly like eBay. First, you'll tell us the highest price you're willing to pay for the computer model's advice. Then we'll bid in increments to keep you in the lead but only up to your limit.</p>
+                
+                <p>For example, if the other participant is willing to pay up to $1.00 and you're willing to pay up to $1.50, we'll bid $1.01 for you, and you'll win the auction. If the other participant is willing to pay up to $1.50 and you're willing to pay up to $1.00, we'll bid $1.01 for the other participant, and you'll lose the auction. We'll resolve ties randomly.</p>
 
-                <p><b>FAQ:</b> Why should I bid exactly what I'm willing to pay? Isn't it usually a good idea to underbid so I pay less?</p>
+                <p>If you win, you'll pay out of your bonus and continue receiving the model's advice, like you did in the final practice rounds. If you lose, you won't pay anything from your bonus but you'll have to make your predictions on your own, like you did in the first practice rounds.</p>
 
-                <p><b>Answer: No!</b> You're thinking of a 'first-price' auction, not a second-price auction. The difference is that, if you win, you'll pay the <i>other</i> person's bid, not your own. Economists have <a href="https://en.wikipedia.org/wiki/Vickrey_auction#Proof_of_dominance_of_truthful_bidding" target="_blank">mathematically proven</a> that the best thing you can do in a second-price auction is bid exactly as much as you're willing to pay.</p>
-
-                <p><b>Keep reading if you're not convinced. Otherwise, skip to the bottom of the page to enter your bid.</b></p>
-
-                <p>Imagine you're bidding for a house you plan to flip for $100,000. (This means you're willing to pay $100,000 for it). You're wondering whether to bid $80,000 or $100,000. Consider these cases.</p>
-
-                <ol>
-                    <li>The other person bids $70,000. You get the house for $70,000 whether you bid $80,000 or $100,000.</li>
-                    <li>The other person bids $110,000. You lose the auction whether you bid $80,000 or $100,000.</li>
-                    <li>The other person bids $90,000. If you bid $80,000, you lose the auction. If you bid $100,000, you get the house for $90,000 and flip it for a $10,000 profit.</li>
-                </ol>
-
-                <p>In general, underbidding (e.g., bidding $80,000 when you're willing to pay $100,000) never makes you better off and sometimes makes you worse off. So you might as well bid the exact amount you're willing to pay.</p>
-
-                <p>The same logic applies to overbidding. Imagine you bid $120,000. The other person bids $110,000. You get the house for $110,000 but flip it for $100,000 at a loss. In general, overbidding (e.g., bidding $120,000 when you're willing to pay at most $100,000) never makes you better off and sometimes makes you worse off. So you might as well bid the exact amount you're willing to pay.</p>
+                We'll figure out how much you're willing to pay on the next pages.
                 '''.format(N_FCAST)    
             ),
-            bid_q,
-            Input(
-                '<p>Confirm your bid</p>',
-                prepend='$', type='number', min=0, max=30, step=.01, 
-                required=True,
-                debug=D.send_keys(random_bid),
-                validate=V.match(
-                    bid_q, 
-                    error_msg='<p>Bids do not match</p>'
-                )
-            ),
             Label(
-                '''
-                The forward button will appear in {:.0f} seconds. Please take this time to carefully read the instructions and consider how much you want to bid.
-                '''.format(45000/1000)
+                '''The forward button will appear in 30 seconds. Please take this time to read the instructions carefully.'''
             ),
-            delay_forward=45000
+            delay_forward=500
+        ),
+        titrate(
+            gen_bid_q,
+            expon(0, 2), 
+            tol=.01,
+            var='Bid',
+            back=True
         ),
         Page(
-            Label(compile=C(auction_result, bid_q))
+            Label(compile=auction_result)
         ),
         navigate=forecast
     )
 
-def auction_result(result_label, bid_q):
-    adopt = current_user.meta['Adopt']
-    bid = float(bid_q.data)
-    other_bid = 0 if adopt else 29.99
-    win = bid >= other_bid if adopt else bid > other_bid
-    result_label.label = (
-        'You won the auction.' if win else 'You lost the auction.'
+def gen_bid_q(other_bid):
+    return Binary(
+        '''
+        <p>Would you outbid the other participant if he/she bid <b>${:.2f}</b> to purchase the model's advice?</p>
+        '''.format(other_bid)
     )
-    current_user.meta.update({
-        'WTP': bid, 'OtherBid': other_bid, 'WonAuction': int(win)
-    })
+
+def auction_result(result_label):
+    def get_other_bid():
+        parts = Participant.query.all()
+        bids = np.array([
+            part.g['Bid'] for part in parts 
+            if (
+                part != current_user
+                and isinstance(part.g, dict) and 'Bid' in part.g
+            )
+        ])
+        return np.quantile(bids, .5) if bids.size != 0 else 1
+
+    bid = current_user.g['Bid']
+    other_bid = get_other_bid()
+    win = bid >= other_bid
+    result_label.label = (
+        '''
+        <p>You were willing to pay up to ${:.2f}. The other participant was willing to pay up to ${:.2f}.</p>
+        '''.format(bid, other_bid)
+    ) + (
+        '''
+        This means you won the auction. <b>You'll pay ${:.2f} of your bonus to keep receiving the model's advice for the rest of your predictions.</b>
+        '''.format(other_bid) if win
+        else '''This means you lost the auction. <b>You'll make the rest of your predictions without the model's advice.</b>'''
+    )
+    current_user.meta.update({'OtherBid': other_bid, 'WonAuction': int(win)})
 
 def forecast(origin):
     return Branch(
@@ -193,17 +180,17 @@ def forecast(origin):
     )
 
 def gen_fcast_pages():
-    def gen_fcast_page(i, x, y, output, explanation): 
+    def gen_fcast_page(i, x, y, output, explanation):
         page = Page(
             Label('Prediction {} of {}'.format(i+1, N_FCAST)),
             gen_profile_label(x),
             gen_fcast_question(),
-            gen_most_important_feature_select(),
             timer='FcastTimer'
         )
         if current_user.meta['WonAuction']:
+            page.questions[-1].default = float(output)
             page.questions.insert(
-                -2, gen_model_prediction_label(output, explanation)
+                -1, gen_model_prediction_label(output, explanation)
             )
         return page
 

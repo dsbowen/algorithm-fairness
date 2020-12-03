@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from gshap.datasets import load_recidivism
 from hemlock import (
-    Branch, Page, Binary, Check, Embedded, Label, Range, Select,
+    Branch, Page, Binary, Check, Embedded, Label, RangeInput, Select,
     Compile as C, Debug as D, Validate as V, Submit as S
 )
 from hemlock.tools import (
@@ -75,13 +75,14 @@ task_description = '''
 '''
 
 task_check_txt = '''
-<p>Imagine you've just read the profile of a criminal offender. Drag the slider to predict that there is a {} in 100 chance the offender will commit another crime within 2 years.</p>
+<p>Imagine you've just read the profile of a criminal offender and you think there is a {} in 100 chance he/she will commit another crime within 2 years. Enter this prediction below.
 '''
 
 def gen_fcast_check_q():
-    return Range(
-        prepend='There is a ',
-        append=' in 100 chance the offender will commit another crime within 2 years',
+    return RangeInput(
+        append='in 100 chance',
+        width='12em', 
+        required=True,
         var='FcastComprehension', data_rows=-1,
         compile=random_fcast_check
     )
@@ -154,7 +155,7 @@ def get_sample(part, n_practice, n_fcast, explanation=False):
     )
     output = model.predict_proba(X_sample)
     store_embedded()
-    explanations = [''] * n_practice * n_fcast
+    explanations = [''] * (n_practice + n_fcast)
     if explanation:
         explanations = explainer.explain_observations(X_sample, output)
     return X_sample, y_sample, np.round(100*output), explanations
@@ -279,12 +280,13 @@ def gen_most_important_feature_select():
     )
 
 def gen_fcast_question(output=None):
-    return Range(
-        '<p>Drag the slider to enter your prediction.</p>',
-        prepend='There is a ', 
-        append=' in 100 chance this offender will commit another crime within 2 years.',
+    return RangeInput(
+        '<p>Enter your prediction here. There is a _____ in 100 chance this offender will commit another crime within 2 years.</p>',
+        width='12em',
+        append='in 100 chance',
         var='Fcast',
-        default=None if output is None else round(100*output)
+        default=None if output is None else float(output),
+        required=True
     )
 
 def gen_feedback_page(i, y, output, fcast_q, disp_output=False):

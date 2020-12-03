@@ -105,7 +105,7 @@ def gen_assessment(page, action_question, profile_questions):
             gen_profile_table(x, 'Offender profile')
         ),
         gen_model_prediction_label(
-            output, explainer.explain_observations(x)[0]
+            round(100*output), explainer.explain_observations(x)[0]
         )
     ]
     if y is not None:
